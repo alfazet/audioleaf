@@ -155,7 +155,7 @@ impl Nanoleaf {
                 trans_time,
             } = command;
             if *panel_no > self.panels.len() - 1 {
-                return Err("Tried to access panel {}, even though there are only {} panels in this Nanoleaf device.".into());
+                return Err(format!("Tried to access panel {}, but there are only {} panels available.", panel_no, self.panels.len()).into());
             }
             let color_rgb = Srgb::from_color(*color_hwb).into_format::<u8>();
             let Srgb {

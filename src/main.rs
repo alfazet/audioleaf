@@ -33,10 +33,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         ip,
         port,
         token_file_path,
-        active_panels,
         primary_axis,
         sort_primary,
         sort_secondary,
+        active_panels,
         trans_time,
     } = nl_config;
     let sort_func = match primary_axis {
@@ -76,7 +76,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         // Why can we make a new config only here, and not earlier? Because before making it we need to ensure that
         // the given IP address is fine and that we actually connect to a Nanoleaf device successfully.
         Config::make_new_config_file(config_clone)?;
-        println!("Connected to a Nanoleaf device with local address {} and finished setup. You can now run audioleaf again.", given_ip);
+        println!("Connected to a Nanoleaf device at local IP {} and finished setup. You can now run audioleaf again.", given_ip);
         return Ok(());
     }
 

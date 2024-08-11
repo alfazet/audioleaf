@@ -3,7 +3,8 @@ use std::f32::consts::PI;
 
 const I: Complex<f32> = Complex { re: 0.0, im: 1.0 };
 
-// based on rosettacode
+// implementation based on rosetta code
+/// Compute the Fourier transform of a sequence of samples
 pub fn fft(samples: &[Complex<f32>]) -> Vec<Complex<f32>> {
     fn rec(buf_a: &mut [Complex<f32>], buf_b: &mut [Complex<f32>], n: usize, step: usize) {
         if step >= n {

@@ -29,7 +29,12 @@ impl Config {
             let mut toml_str = String::new();
             config_file.read_to_string(&mut toml_str)?;
 
-            toml::from_str(&toml_str)?
+            match toml::from_str(&toml_str) {
+                Ok(deserialized_config) => deserialized_config,
+                Err(e) => {
+                    return Err(format!("Parsing the config file failed: {}", e).into());
+                }
+            }
         } else {
             let ip = match given_ip {
                 Some(ip) => ip,
@@ -41,10 +46,10 @@ impl Config {
                 ip: ip.to_string(),
                 port: 6789,
                 token_file_path: "~/.config/audioleaf/nltoken".to_string(),
-                active_panels: vec![0, 1, 2, 6, 9, 10, 11],
                 primary_axis: Axis::Y,
                 sort_primary: Sort::Asc,
                 sort_secondary: Sort::Asc,
+                active_panels: vec![0, 1, 2, 6, 9, 10, 11],
                 trans_time: 2,
             };
             let fifo_path = "/tmp/mpd.fifo".to_string();
@@ -77,13 +82,6 @@ impl Config {
                 brightness_range,
                 freq_ranges,
             }
-            // let config_toml = toml::to_string_pretty(&config_to_serialize)?;
-            //
-            // if !Path::try_exists(&config_dir_path)? {
-            //     fs::create_dir(&config_dir_path)?;
-            // }
-            // let mut config_file = File::create(config_file_path)?;
-            // config_file.write_all(config_toml.as_bytes())?;
         };
 
         Ok(config)
@@ -118,10 +116,10 @@ pub struct NlConfig {
     pub ip: String,
     pub port: u16,
     pub token_file_path: String,
-    pub active_panels: Vec<usize>,
     pub primary_axis: Axis,
     pub sort_primary: Sort,
     pub sort_secondary: Sort,
+    pub active_panels: Vec<usize>,
     pub trans_time: u16,
 }
 

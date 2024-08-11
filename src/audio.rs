@@ -7,10 +7,16 @@ use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
 
-/// Return n_samples PCM samples from a .fifo (named pipe) source
+/// Return PCM samples from a .fifo (named pipe)
 pub fn get_samples(fifo_path: &str, n_samples: usize) -> Result<Vec<i16>, Box<dyn Error>> {
     let fifo_path_expanded = expanduser(fifo_path)?.display().to_string();
-    let mut fifo = File::open(fifo_path_expanded)?;
+    // let mut fifo = File::open(fifo_path_expanded)?;
+    let mut fifo = match File::open(&fifo_path_expanded) {
+        Ok(fifo) => fifo,
+        Err(_) => {
+            return Err(format!("Couldn't open file {}.", fifo_path_expanded).into());
+        }
+    };
     let mut buf = vec![0u8; n_samples * 4];
     fifo.read_exact(&mut buf)?;
     let mut samples = Vec::new();
@@ -35,8 +41,8 @@ pub fn freq_domain(samples: &[i16]) -> Vec<f32> {
         .take(samples.len() / 2) // the second half is a mirror image of the first
         .map(|x| {
             let norm = Complex::norm(*x);
-            if norm.abs() < 0.001 {
-                // in case of silence we want 0, not -inf
+            if norm.abs() < 1.0 {
+                // in case of near silence we want 0, not a negative number
                 0.0
             } else {
                 norm.ln()
@@ -54,11 +60,24 @@ pub fn visualise(
     max_volume_level: f32,
     brightness_range: f32,
 ) -> Result<Vec<Hwb>, Box<dyn Error>> {
+    if !(0.0..=100.0).contains(&brightness_range) {
+        return Err("Brightness range must be a real number between 0 and 100.".into());
+    }
+    let last_freq_cutoff = match freq_ranges.last() {
+        Some(last_cutoff) => last_cutoff.cutoff,
+        None => {
+            return Err("There has to be at least one specified frequency range.".into());
+        }
+    };
+    if last_freq_cutoff < sample_rate / 2 {
+        return Err(format!("The last frequency range needs to end at at least a half of the sample_rate ({} Hz in this case).", sample_rate / 2).into());
+    }
     let mut res = Vec::new();
     let panels_per_range = n_panels / freq_ranges.len();
     if panels_per_range == 0 {
         return Err(
-            "The number of panels can't be lower than the number of frequency ranges.".into(),
+            "The number of panels can't be lower than the number of specified frequency ranges."
+                .into(),
         );
     }
     let n_bins = spectrum.len();
