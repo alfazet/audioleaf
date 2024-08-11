@@ -14,11 +14,22 @@ mod nanoleaf;
 fn main() -> Result<(), Box<dyn Error>> {
     let cmd_args = env::args().collect::<Vec<String>>();
     let given_ip = if cmd_args.len() > 1 {
-        Some(cmd_args[1].parse::<Ipv4Addr>()?)
+        let parsed = match cmd_args[1].parse::<Ipv4Addr>() {
+            Ok(parsed) => parsed,
+            Err(_) => {
+                return Err(format!("Couldn't parse IP address '{}'.", cmd_args[1]).into());
+            }
+        };
+        Some(parsed)
     } else {
         None
     };
-    let config = Config::new(given_ip)?;
+    let config = match Config::new(given_ip) {
+        Ok(config) => config,
+        Err(e) => {
+            return Err(format!("Generating a default configuration failed. {}", e).into());
+        }
+    };
     let config_clone = config.clone();
     let Config {
         nl_config,
@@ -75,23 +86,38 @@ fn main() -> Result<(), Box<dyn Error>> {
     if let Some(given_ip) = given_ip {
         // Why can we make a new config only here, and not earlier? Because before making it we need to ensure that
         // the given IP address is fine and that we actually connect to a Nanoleaf device successfully.
-        Config::make_new_config_file(config_clone)?;
+        match Config::make_new_config_file(config_clone) {
+            Ok(_) => (),
+            Err(e) => {
+                return Err(format!("Making a new config file failed. {}", e).into());
+            }
+        };
         println!("Connected to a Nanoleaf device at local IP {} and finished setup. You can now run audioleaf again.", given_ip);
         return Ok(());
     }
 
     nl.sort_panels(|a: &Panel, b: &Panel| sort_func(*a, *b));
     loop {
-        let samples = audio::get_samples(&fifo_path, n_samples)?;
+        let samples = match audio::get_samples(&fifo_path, n_samples) {
+            Ok(samples) => samples,
+            Err(e) => {
+                return Err(format!("Reading PCM samples failed. {}", e).into());
+            }
+        };
         let spectrum = audio::freq_domain(&samples);
-        let colors_to_apply = audio::visualise(
+        let colors_to_apply = match audio::visualise(
             spectrum,
             &freq_ranges,
             active_panels.len(),
             sample_rate,
             max_volume_level,
             brightness_range,
-        )?;
+        ) {
+            Ok(colors_to_apply) => colors_to_apply,
+            Err(e) => {
+                return Err(format!("Visualizing failed. {}", e).into());
+            }
+        };
         let commands = active_panels
             .iter()
             .zip(colors_to_apply)
@@ -101,7 +127,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                 trans_time,
             })
             .collect::<Vec<_>>();
-        nl.run_commands(&commands)?;
+        match nl.run_commands(&commands) {
+            Ok(_) => (),
+            Err(e) => {
+                return Err(format!("Running Nanoleaf commands failed. {}", e).into());
+            }
+        };
     }
 
     Ok(())
