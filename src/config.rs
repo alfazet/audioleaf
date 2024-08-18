@@ -22,6 +22,9 @@ impl Config {
             return Err("Config directory not found on your system.".into());
         };
         let config_dir_path = system_config_dir_path.join("audioleaf");
+        if !Path::try_exists(&config_dir_path)? {
+            fs::create_dir(&config_dir_path)?;
+        }
         let config_file_path = config_dir_path.join("audioleaf.toml");
 
         let config = if Path::try_exists(&config_file_path)? {
@@ -42,6 +45,7 @@ impl Config {
                     return Err("It seems you're running audioleaf for the first time. Please provide the IP of your Nanoleaf device. For more information consult the README.".into());
                 }
             };
+
             let nl_config = NlConfig {
                 ip: ip.to_string(),
                 port: 6789,
