@@ -1,0 +1,13 @@
+pkgbase = audioleaf-bin
+	pkgdesc = Visualize music on your Nanoleaf Canvas
+	pkgver = 1.0.3
+	pkgrel = 1
+	url = https://github.com/alfazet/audioleaf
+	arch = x86_64
+	license = MIT
+	provides = audioleaf
+	conflicts = audioleaf
+	source = https://github.com/alfazet/audioleaf/releases/download/v1.0.3/audioleaf-1.0.3-x86_64.tar.gz
+	sha256sums = 0f8b2d47ae62be64bed294e8aa09b0c42873cbee065211c9d7385b6a045ddae7
+
+pkgname = audioleaf-bin
