@@ -4,7 +4,9 @@ A music visualizer for Nanoleaf Canvas. Works best with MPD (the Music Player Da
 
 ## Installation
 
-Install from cargo using `cargo install audioleaf`. Make sure that the directory with cargo binaries (by default `$HOME\.cargo\bin`) is added to your PATH.
+Install from cargo with `cargo install audioleaf`. Make sure that the directory with cargo binaries (by default `$HOME\.cargo\bin`) is added to your PATH.
+
+For users of Arch-based distros, audioleaf is available as a [package in the AUR](https://aur.archlinux.org/packages/audioleaf).
 
 ## Usage
 
