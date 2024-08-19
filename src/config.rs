@@ -42,7 +42,7 @@ impl Config {
             let ip = match given_ip {
                 Some(ip) => ip,
                 None => {
-                    return Err("It seems you're running audioleaf for the first time. Please provide the IP of your Nanoleaf device. For more information consult the README.".into());
+                    return Err("It seems that you're running audioleaf for the first time. Please run `audioleaf <ip_address>` with the local IP address of your Nanoleaf device while its contol lights are flashing to complete the first-time setup. For more details see the README at https://github.com/alfazet/audioleaf.".into());
                 }
             };
 

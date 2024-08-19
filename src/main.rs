@@ -13,7 +13,14 @@ mod nanoleaf;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let cmd_args = env::args().collect::<Vec<String>>();
-    let given_ip = if cmd_args.len() > 1 {
+    let any_args = cmd_args.len() > 1;
+    if any_args {
+        let arg = cmd_args[1].parse::<String>().unwrap();
+        if &arg == "--help" || &arg == "-h" {
+            return Err("If you're running audioleaf for the first time, please run `audioleaf <ip_address>` with the local IP address of your Nanoleaf device while its contol lights are flashing. If you've already done the setup, please run audioleaf with no arguments. For more details see the README at https://github.com/alfazet/audioleaf.".into());
+        }
+    }
+    let given_ip = if any_args {
         let parsed = match cmd_args[1].parse::<Ipv4Addr>() {
             Ok(parsed) => parsed,
             Err(_) => {

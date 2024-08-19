@@ -24,7 +24,7 @@ All configuration is done through the `audioleaf.toml` file, located in `$HOME/.
 * `n_samples`: How many samples will be taken by the visualizer at one time.
 * `max_volume_level` : The highest volume level "representable" on the visualizer. Every volume level greater than or equal to `max_volume_level` will be mapped to the brightest color for a given panel.
     * The aforementioned "volume level" is the average over natural logs of the magnitudes of frequencies included in a certain time interval. It doesn't directly correspond to any physical unit like dB. In general, this number doesn't exceed 16. Also note that it *doesn't* depend on the volume of your audio output device. 
-* `brightness_range`: A real value between 0 and 100, specifying how much the color brightness will change in response to changes in the volume level.
+* `brightness_range`: A real value between 0 and 100, specifying how much the color brightness will change in response to changes in the volume level. It should be set pretty high for a more "lively" effect.
 * `nl_config.ip`: The local IP address of your Nanoleaf device.
 * `port`: The port to which the UDP socket will bind (on your host).
 * `token_file_path`: The path where audioleaf will save the Nanoleaf auth token.
