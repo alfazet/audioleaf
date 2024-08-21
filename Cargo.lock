@@ -46,9 +46,8 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "audioleaf"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
- "daemonize",
  "dirs 5.0.1",
  "expanduser",
  "num",
@@ -173,15 +172,6 @@ name = "crossbeam-utils"
 version = "0.8.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22ec99545bb0ed0ea7bb9b8e1e9122ea386ff8a48c0922e43f36d45ab09e0e80"
-
-[[package]]
-name = "daemonize"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab8bfdaacb3c887a54d41bdf48d3af8873b3f5566469f8ba21b92057509f116e"
-dependencies = [
- "libc",
-]
 
 [[package]]
 name = "dirs"

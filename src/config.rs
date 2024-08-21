@@ -57,10 +57,10 @@ impl Config {
                 trans_time: 2,
             };
             let fifo_path = "/tmp/mpd.fifo".to_string();
-            let sample_rate = 48_000;
-            let n_samples = 2048;
-            let max_volume_level = 13.0;
-            let brightness_range = 75.0;
+            let sample_rate = 44_100;
+            let n_samples = 4096;
+            let max_volume_level = 15.0;
+            let brightness_range = 90.0;
             let cutoffs = vec![60, 250, 500, 2000, 4000, 6000, sample_rate];
             let colors = vec![
                 "#fffb00".to_string(),

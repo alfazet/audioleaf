@@ -2,6 +2,7 @@
 
 use config::{Axis, Config, NlConfig, Sort};
 use nanoleaf::{Command, Nanoleaf, Panel};
+use std::collections::VecDeque;
 use std::env;
 use std::error::Error;
 use std::net::Ipv4Addr;
@@ -10,6 +11,8 @@ mod audio;
 mod config;
 mod fft;
 mod nanoleaf;
+
+const WINDOW_LEN: usize = 5;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let cmd_args = env::args().collect::<Vec<String>>();
@@ -91,19 +94,19 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     };
     if let Some(given_ip) = given_ip {
-        // Why can we make a new config only here, and not earlier? Because before making it we need to ensure that
-        // the given IP address is fine and that we actually connect to a Nanoleaf device successfully.
         match Config::make_new_config_file(config_clone) {
             Ok(_) => (),
             Err(e) => {
                 return Err(format!("Making a new config file failed. {}", e).into());
             }
         };
-        println!("Connected to a Nanoleaf device at local IP {} and finished setup. You can now run audioleaf again.", given_ip);
+        println!("Connected to a Nanoleaf device at local IP {}, finished setup and created the config file. You can now run audioleaf again.", given_ip);
         return Ok(());
     }
 
     nl.sort_panels(|a: &Panel, b: &Panel| sort_func(*a, *b));
+    let reference_base_level = max_volume_level.div_euclid(2.0);
+    let mut window = VecDeque::<f32>::from([0.0; WINDOW_LEN]);
     loop {
         let samples = match audio::get_samples(&fifo_path, n_samples) {
             Ok(samples) => samples,
@@ -112,11 +115,17 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
         };
         let spectrum = audio::freq_domain(&samples);
+
+        window.rotate_left(1);
+        *window.back_mut().unwrap() = spectrum.iter().sum::<f32>() / (n_samples as f32);
+        let window_avg = window.iter().sum::<f32>() / (WINDOW_LEN as f32);
+        let cur_base_level = reference_base_level + 0.2 * (window_avg - reference_base_level);
         let colors_to_apply = match audio::visualise(
             spectrum,
             &freq_ranges,
             active_panels.len(),
             sample_rate,
+            cur_base_level,
             max_volume_level,
             brightness_range,
         ) {

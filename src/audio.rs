@@ -10,7 +10,6 @@ use std::io::prelude::*;
 /// Return PCM samples from a .fifo (named pipe)
 pub fn get_samples(fifo_path: &str, n_samples: usize) -> Result<Vec<i16>, Box<dyn Error>> {
     let fifo_path_expanded = expanduser(fifo_path)?.display().to_string();
-    // let mut fifo = File::open(fifo_path_expanded)?;
     let mut fifo = match File::open(&fifo_path_expanded) {
         Ok(fifo) => fifo,
         Err(_) => {
@@ -57,6 +56,7 @@ pub fn visualise(
     freq_ranges: &[FreqRange],
     n_panels: usize,
     sample_rate: usize,
+    cur_base_level: f32,
     max_volume_level: f32,
     brightness_range: f32,
 ) -> Result<Vec<Hwb>, Box<dyn Error>> {
@@ -83,7 +83,7 @@ pub fn visualise(
     let n_bins = spectrum.len();
     let hz_per_bin = (sample_rate / 2) / n_bins;
     let middle_offset = hz_per_bin / 2;
-    let mid_volume_level = max_volume_level.div_euclid(2.0);
+    // let mid_volume_level = max_volume_level.div_euclid(2.0);
     let (mut cur_range, mut bins_in_range, mut total_level) = (0, 0, 0.0);
     for (i, level) in spectrum.into_iter().enumerate() {
         if i * hz_per_bin + middle_offset > freq_ranges[cur_range].cutoff || i == n_bins - 1 {
@@ -94,7 +94,7 @@ pub fn visualise(
             let mut color_hwb = Hwb::from_color(color_rgb).into_format::<f32>();
             let avg_level = total_level / (bins_in_range as f32);
             let brightness_delta =
-                (avg_level - mid_volume_level) * (brightness_range / mid_volume_level) / 100.0;
+                (avg_level - cur_base_level) * (brightness_range / cur_base_level) / 100.0;
             if brightness_delta >= 0.0 {
                 color_hwb.whiteness += brightness_delta;
             } else {

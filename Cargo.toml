@@ -6,13 +6,12 @@ license = "MIT"
 readme = "README.md"
 repository = "https://github.com/alfazet/audioleaf"
 name = "audioleaf"
-version = "1.1.0"
+version = "1.2.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-daemonize = "0.5.0"
 dirs = "5.0.1"
 expanduser = "1.2.2"
 num = "0.4.3"
