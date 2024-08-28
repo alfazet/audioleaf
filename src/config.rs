@@ -1,131 +1,7 @@
 use serde::{Deserialize, Serialize};
-use std::error::Error;
 use std::fs::{self, File};
 use std::io::prelude::*;
-use std::net::Ipv4Addr;
-use std::path::Path;
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct Config {
-    pub nl_config: NlConfig,
-    pub fifo_path: String,
-    pub sample_rate: usize,
-    pub n_samples: usize,
-    pub max_volume_level: f32,
-    pub brightness_range: f32,
-    pub freq_ranges: Vec<FreqRange>,
-}
-
-impl Config {
-    pub fn new(given_ip: Option<Ipv4Addr>) -> Result<Config, Box<dyn Error>> {
-        let Some(system_config_dir_path) = dirs::config_dir() else {
-            return Err("Config directory not found on your system.".into());
-        };
-        let config_dir_path = system_config_dir_path.join("audioleaf");
-        if !Path::try_exists(&config_dir_path)? {
-            fs::create_dir(&config_dir_path)?;
-        }
-        let config_file_path = config_dir_path.join("audioleaf.toml");
-
-        let config = if Path::try_exists(&config_file_path)? {
-            let mut config_file = File::open(config_file_path)?;
-            let mut toml_str = String::new();
-            config_file.read_to_string(&mut toml_str)?;
-
-            match toml::from_str(&toml_str) {
-                Ok(deserialized_config) => deserialized_config,
-                Err(e) => {
-                    return Err(format!("Parsing the config file failed: {}", e).into());
-                }
-            }
-        } else {
-            let ip = match given_ip {
-                Some(ip) => ip,
-                None => {
-                    return Err("It seems that you're running audioleaf for the first time. Please run `audioleaf <ip_address>` with the local IP address of your Nanoleaf device while its contol lights are flashing to complete the first-time setup. For more details see the README at https://github.com/alfazet/audioleaf.".into());
-                }
-            };
-
-            let nl_config = NlConfig {
-                ip: ip.to_string(),
-                port: 6789,
-                token_file_path: "~/.config/audioleaf/nltoken".to_string(),
-                primary_axis: Axis::Y,
-                sort_primary: Sort::Asc,
-                sort_secondary: Sort::Asc,
-                active_panels: vec![0, 1, 2, 6, 9, 10, 11],
-                trans_time: 2,
-            };
-            let fifo_path = "/tmp/mpd.fifo".to_string();
-            let sample_rate = 44_100;
-            let n_samples = 4096;
-            let max_volume_level = 15.0;
-            let brightness_range = 90.0;
-            let cutoffs = vec![60, 250, 500, 2000, 4000, 6000, sample_rate];
-            let colors = vec![
-                "#fffb00".to_string(),
-                "#ff8000".to_string(),
-                "#ff0040".to_string(),
-                "#ff00bf".to_string(),
-                "#bf00ff".to_string(),
-                "#4000ff".to_string(),
-                "#0040ff".to_string(),
-            ];
-            let freq_ranges = cutoffs
-                .into_iter()
-                .zip(colors)
-                .map(|(cutoff, color)| FreqRange { cutoff, color })
-                .collect::<Vec<_>>();
-
-            Config {
-                nl_config,
-                fifo_path,
-                sample_rate,
-                n_samples,
-                max_volume_level,
-                brightness_range,
-                freq_ranges,
-            }
-        };
-
-        Ok(config)
-    }
-
-    pub fn make_new_config_file(config_to_serialize: Config) -> Result<(), Box<dyn Error>> {
-        let Some(system_config_dir_path) = dirs::config_dir() else {
-            return Err("Config directory not found on your system.".into());
-        };
-        let config_dir_path = system_config_dir_path.join("audioleaf");
-        let config_file_path = config_dir_path.join("audioleaf.toml");
-
-        let config_toml = toml::to_string_pretty(&config_to_serialize)?;
-        if !Path::try_exists(&config_dir_path)? {
-            fs::create_dir(&config_dir_path)?;
-        }
-        let mut config_file = File::create(config_file_path)?;
-        config_file.write_all(config_toml.as_bytes())?;
-
-        Ok(())
-    }
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct FreqRange {
-    pub cutoff: usize,
-    pub color: String,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct NlConfig {
-    pub ip: String,
-    pub port: u16,
-    pub token_file_path: String,
-    pub primary_axis: Axis,
-    pub sort_primary: Sort,
-    pub sort_secondary: Sort,
-    pub active_panels: Vec<usize>,
-    pub trans_time: u16,
-}
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "lowercase")]
@@ -139,4 +15,67 @@ pub enum Axis {
 pub enum Sort {
     Asc,
     Desc,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct NlConfig {
+    pub primary_axis: Axis,
+    pub sort_primary: Sort,
+    pub sort_secondary: Sort,
+    pub active_panels: Vec<usize>,
+    pub token_file_path: PathBuf,
+    pub ip: String,
+    pub port: u16,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct Config {
+    pub nl_config: NlConfig,
+    pub audio_device: String,
+    pub min_freq: u32,
+    pub max_freq: u32,
+    pub default_gain: f32,
+    pub hues: Vec<u16>,
+}
+
+pub fn try_read_from_file(config_file_path: &Path) -> Result<Option<Config>, anyhow::Error> {
+    if Path::try_exists(config_file_path)? {
+        let mut config_file = File::open(config_file_path)?;
+        let mut toml_str = String::new();
+        config_file.read_to_string(&mut toml_str)?;
+
+        match toml::from_str(&toml_str) {
+            Ok(deserialized_config) => Ok(Some(deserialized_config)),
+            Err(e) => Err(anyhow::Error::msg(format!(
+                "Parsing the config file failed: {}",
+                e
+            ))),
+        }
+    } else {
+        Ok(None)
+    }
+}
+
+pub fn make_new_config_file(
+    config_to_serialize: &Config,
+    config_file: &Path,
+) -> Result<(), anyhow::Error> {
+    let config_dir = match config_file.parent() {
+        Some(parent) => parent,
+        None => {
+            return Err(anyhow::Error::msg(format!(
+                "Path '{}' is invalid",
+                config_file.to_string_lossy()
+            )));
+        }
+    };
+
+    let config_toml = toml::to_string_pretty(&config_to_serialize)?;
+    if !Path::try_exists(config_dir)? {
+        fs::create_dir(config_dir)?;
+    }
+    let mut config_file = File::create(config_file)?;
+    config_file.write_all(config_toml.as_bytes())?;
+
+    Ok(())
 }
