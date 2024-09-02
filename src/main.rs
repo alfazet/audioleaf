@@ -3,7 +3,7 @@ use config::{Axis, Config, NlConfig, Sort};
 use console::Term;
 use core::f32;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{InputCallbackInfo, StreamConfig};
+use cpal::{InputCallbackInfo, Sample, StreamConfig};
 use nanoleaf::{Command, Nanoleaf, Panel};
 use std::net::Ipv4Addr;
 use std::path::PathBuf;
@@ -86,10 +86,16 @@ fn main() -> Result<(), anyhow::Error> {
 
             let max_active_panel = *config.nl_config.active_panels.iter().max().unwrap();
             if nl.panels.len() < max_active_panel {
-                return Err(anyhow::Error::msg(format!("Panel {} in active_panels, but only {} panels overall", max_active_panel, nl.panels.len())));
+                return Err(anyhow::Error::msg(format!(
+                    "Panel {} in active_panels, but only {} panels overall",
+                    max_active_panel,
+                    nl.panels.len()
+                )));
             }
             if config.nl_config.active_panels.iter().any(|&x| x == 0) {
-                return Err(anyhow::Error::msg("Panel 0 is invalid, panels should be numbered from 1"));
+                return Err(anyhow::Error::msg(
+                    "Panel 0 is invalid, panels should be numbered from 1",
+                ));
             }
             println!("Success!");
 
@@ -106,7 +112,7 @@ fn main() -> Result<(), anyhow::Error> {
                     .is_some_and(|ip| ip.parse::<Ipv4Addr>().is_err())
             {
                 return Err(anyhow::Error::msg(
-                    "IP unspecified or invalid, please run `audioleaf <nanoleaf_device_ip>`",
+                    "IP unspecified or invalid, please run `audioleaf --ip <nanoleaf_device_ip>`",
                 ));
             }
             let nl_ip = nl_ip.unwrap();
@@ -138,7 +144,7 @@ fn main() -> Result<(), anyhow::Error> {
                 nl_config,
                 audio_device: device_name.unwrap_or(String::from("default")),
                 min_freq: 20,
-                max_freq: 20_000,
+                max_freq: 10_000,
                 default_gain: 3.0 / 8.0,
                 hues: (240..=420)
                     .rev()
@@ -227,7 +233,9 @@ fn main() -> Result<(), anyhow::Error> {
             )));
         }
     };
-    let audio_config: StreamConfig = device.default_input_config()?.into();
+    let audio_config = device.default_input_config()?;
+    let sample_format = audio_config.sample_format();
+    let audio_config: StreamConfig = audio_config.into();
     if max_freq > audio_config.sample_rate.0 / 2 {
         return Err(anyhow::Error::msg(format!(
             "Maximal frequency to visualize ({} Hz) is more than half of the sample rate ({} Hz)",
@@ -239,20 +247,103 @@ fn main() -> Result<(), anyhow::Error> {
     let tx_user_input = tx_audio.clone();
     let error_callback =
         move |err| eprintln!("An error has occured while playing the stream: {}", err);
-    let data_callback = move |data: &[f32], _: &InputCallbackInfo| {
-        let mut samples = Vec::new();
-        let n_channels = audio_config.channels as usize;
-        for chunk in data.chunks_exact(n_channels) {
-            // max of samples from all channels
-            samples.push(
-                chunk
-                    .iter()
-                    .fold(f32::NEG_INFINITY, |acc, x| f32::max(acc, *x)),
-            );
+    let stream = match sample_format {
+        cpal::SampleFormat::F32 => device.build_input_stream(
+            &audio_config,
+            move |data, _: &InputCallbackInfo| {
+                data_callback(data.to_vec(), audio_config.channels as usize, &tx_audio)
+            },
+            error_callback,
+            None,
+        )?,
+        cpal::SampleFormat::F64 => device.build_input_stream(
+            &audio_config,
+            move |data: &[f64], _: &InputCallbackInfo| {
+                let data_f32 = Vec::from_iter(data.iter().map(|sample| sample.to_sample::<f32>()));
+                data_callback(data_f32, audio_config.channels as usize, &tx_audio)
+            },
+            error_callback,
+            None,
+        )?,
+        cpal::SampleFormat::I8 => device.build_input_stream(
+            &audio_config,
+            move |data: &[i8], _: &InputCallbackInfo| {
+                let data_f32 = Vec::from_iter(data.iter().map(|sample| sample.to_sample::<f32>()));
+                data_callback(data_f32, audio_config.channels as usize, &tx_audio)
+            },
+            error_callback,
+            None,
+        )?,
+        cpal::SampleFormat::I16 => device.build_input_stream(
+            &audio_config,
+            move |data: &[i16], _: &InputCallbackInfo| {
+                let data_f32 = Vec::from_iter(data.iter().map(|sample| sample.to_sample::<f32>()));
+                data_callback(data_f32, audio_config.channels as usize, &tx_audio)
+            },
+            error_callback,
+            None,
+        )?,
+        cpal::SampleFormat::I32 => device.build_input_stream(
+            &audio_config,
+            move |data: &[i32], _: &InputCallbackInfo| {
+                let data_f32 = Vec::from_iter(data.iter().map(|sample| sample.to_sample::<f32>()));
+                data_callback(data_f32, audio_config.channels as usize, &tx_audio)
+            },
+            error_callback,
+            None,
+        )?,
+        cpal::SampleFormat::I64 => device.build_input_stream(
+            &audio_config,
+            move |data: &[i64], _: &InputCallbackInfo| {
+                let data_f32 = Vec::from_iter(data.iter().map(|sample| sample.to_sample::<f32>()));
+                data_callback(data_f32, audio_config.channels as usize, &tx_audio)
+            },
+            error_callback,
+            None,
+        )?,
+        cpal::SampleFormat::U8 => device.build_input_stream(
+            &audio_config,
+            move |data: &[u8], _: &InputCallbackInfo| {
+                let data_f32 = Vec::from_iter(data.iter().map(|sample| sample.to_sample::<f32>()));
+                data_callback(data_f32, audio_config.channels as usize, &tx_audio)
+            },
+            error_callback,
+            None,
+        )?,
+        cpal::SampleFormat::U16 => device.build_input_stream(
+            &audio_config,
+            move |data: &[u16], _: &InputCallbackInfo| {
+                let data_f32 = Vec::from_iter(data.iter().map(|sample| sample.to_sample::<f32>()));
+                data_callback(data_f32, audio_config.channels as usize, &tx_audio)
+            },
+            error_callback,
+            None,
+        )?,
+        cpal::SampleFormat::U32 => device.build_input_stream(
+            &audio_config,
+            move |data: &[u32], _: &InputCallbackInfo| {
+                let data_f32 = Vec::from_iter(data.iter().map(|sample| sample.to_sample::<f32>()));
+                data_callback(data_f32, audio_config.channels as usize, &tx_audio)
+            },
+            error_callback,
+            None,
+        )?,
+        cpal::SampleFormat::U64 => device.build_input_stream(
+            &audio_config,
+            move |data: &[u64], _: &InputCallbackInfo| {
+                let data_f32 = Vec::from_iter(data.iter().map(|sample| sample.to_sample::<f32>()));
+                data_callback(data_f32, audio_config.channels as usize, &tx_audio)
+            },
+            error_callback,
+            None,
+        )?,
+        sample_format => {
+            return Err(anyhow::Error::msg(format!(
+                "Unsupported sample format: {}",
+                sample_format
+            )));
         }
-        tx_audio.send(Some(samples)).unwrap();
     };
-    let stream = device.build_input_stream(&audio_config, data_callback, error_callback, None)?;
     stream.play()?;
 
     let gain_original = Arc::new(Mutex::new(default_gain));
@@ -296,11 +387,11 @@ fn main() -> Result<(), anyhow::Error> {
                 }
                 '=' => {
                     let mut gain = gain.lock().unwrap();
-                    *gain += 0.1;
+                    *gain += 0.05;
                 }
                 '-' => {
                     let mut gain = gain.lock().unwrap();
-                    *gain -= 0.1;
+                    *gain -= 0.05;
                     if (*gain).is_sign_negative() {
                         *gain = 0.0;
                     }
@@ -311,4 +402,18 @@ fn main() -> Result<(), anyhow::Error> {
     }
 
     Ok(())
+}
+
+/// Receives Ts (which implement Sample and FromSample) and returns f32s
+fn data_callback(data: Vec<f32>, n_channels: usize, tx: &mpsc::Sender<Option<Vec<f32>>>) {
+    let mut samples = Vec::new();
+    for chunk in data.chunks_exact(n_channels) {
+        // max of samples from all channels
+        samples.push(
+            chunk
+                .iter()
+                .fold(f32::NEG_INFINITY, |acc, x| f32::max(acc, *x)),
+        );
+    }
+    tx.send(Some(samples)).unwrap();
 }
