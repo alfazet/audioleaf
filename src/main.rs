@@ -404,7 +404,6 @@ fn main() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-/// Receives Ts (which implement Sample and FromSample) and returns f32s
 fn data_callback(data: Vec<f32>, n_channels: usize, tx: &mpsc::Sender<Option<Vec<f32>>>) {
     let mut samples = Vec::new();
     for chunk in data.chunks_exact(n_channels) {
