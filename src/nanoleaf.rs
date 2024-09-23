@@ -26,6 +26,7 @@ pub struct Nanoleaf {
 pub struct Command {
     pub panel_no: usize,
     pub color: Hwb,
+    pub transition_time: u16,
 }
 
 impl Nanoleaf {
@@ -166,6 +167,7 @@ impl Nanoleaf {
             let Command {
                 panel_no,
                 color: color_hwb,
+                transition_time,
             } = command;
             let color_rgb = Srgb::from_color(*color_hwb).into_format::<u8>();
             let Srgb {
@@ -178,7 +180,7 @@ impl Nanoleaf {
             let mut sub_buf = [0u8; 8];
             (sub_buf[0], sub_buf[1]) = split_into_bytes(self.panels[*panel_no - 1].id);
             (sub_buf[2], sub_buf[3], sub_buf[4], sub_buf[5]) = (red, green, blue, 0);
-            (sub_buf[6], sub_buf[7]) = split_into_bytes(1);
+            (sub_buf[6], sub_buf[7]) = split_into_bytes(*transition_time);
             buf.extend(sub_buf);
         }
         self.socket.send(&buf)?;

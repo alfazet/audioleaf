@@ -35,6 +35,7 @@ pub struct Config {
     pub min_freq: u32,
     pub max_freq: u32,
     pub default_gain: f32,
+    pub transition_time: u16,
     pub hues: Vec<u16>,
 }
 

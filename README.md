@@ -13,7 +13,8 @@ All configuration of audioleaf is done through the `audioleaf.toml` file, locate
 
 * `audio_device`: The audio input device that will be the source of audio data for the visualizer.
 * `min/max_freq`: The minimum/maximum frequency (in Hz) to be included in the visualization.
-* `default_gain`: A non-negative real number, the bigger it is the more the audio samples are amplified before being visualized. While in audioleaf you can decrease and increase gain with the <kbd>-</kbd> and <kbd>=</kbd> keys. This settings doesn't affect your listening volume.
+* `default_gain`: A non-negative real number, the bigger it is the more the audio samples are amplified before being visualized. While in audioleaf you can decrease and increase gain with <kbd>-</kbd> and <kbd>=</kbd> keys. This setting won't affect your listening volume.
+* `transition_time`: The duration of a single transition from one color to another, specified in units of 100 ms. Be careful of setting this value to 1 if you're photosensitive.
 * `hues`: A list of hues to be used in the visualizer's color palette, specified as angles between 0 and 360 degrees on the standard [color wheel](https://developer.mozilla.org/en-US/blog/learn-css-hues-colors-hsl/color-wheel.svg).
 * `nl_config.primary_axis`: The primary coordinate by which the panels will be sorted. Possible values are `"x"` (left → right) and `"y"` (bottom → top).
 * `nl_config.sort_primary/secondary`: The direction in which the panels will be sorted on the primary/secondary axis. Possible values are `"asc"` (ascending) and `"desc"` (descending).

@@ -61,7 +61,6 @@ pub fn visualize(
         }
         cur_max = cur_max.max(ampl);
     }
-    assert!(colors.len() == n_panels);
 
     colors
 }

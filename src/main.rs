@@ -14,8 +14,6 @@ mod audio;
 mod config;
 mod nanoleaf;
 
-const SAMPLING_ITERS: u8 = 3;
-
 /// Audioleaf - An audio visualizer for Nanoleaf Canvas
 #[derive(Parser, Debug)]
 #[command(version, about, author, long_about = None)]
@@ -144,8 +142,9 @@ fn main() -> Result<(), anyhow::Error> {
                 nl_config,
                 audio_device: device_name.unwrap_or(String::from("default")),
                 min_freq: 20,
-                max_freq: 10_000,
-                default_gain: 3.0 / 8.0,
+                max_freq: 6000,
+                default_gain: 0.5,
+                transition_time: 2,
                 hues: (240..=420)
                     .rev()
                     .step_by(180 / (nl.panels.len() - 1))
@@ -169,6 +168,7 @@ fn main() -> Result<(), anyhow::Error> {
         min_freq,
         max_freq,
         default_gain,
+        transition_time,
         mut hues,
     } = config;
     let NlConfig {
@@ -241,6 +241,10 @@ fn main() -> Result<(), anyhow::Error> {
             "Maximal frequency to visualize ({} Hz) is more than half of the sample rate ({} Hz)",
             max_freq, audio_config.sample_rate.0
         )));
+    }
+
+    if transition_time < 1 {
+        return Err(anyhow::Error::msg("Transition time must be positive"));
     }
 
     let (tx_audio, rx) = mpsc::channel();
@@ -352,7 +356,8 @@ fn main() -> Result<(), anyhow::Error> {
         'visualizer_loop: loop {
             let mut time_samples = Vec::new();
             // we need to take samples a couple of times because Nanoleaf can't change colors faster than every 100 ms
-            for _ in 0..SAMPLING_ITERS {
+            // the FFT takes ~50ms per one batch of samples
+            for _ in 0..(transition_time * 2 + 1) {
                 match rx.recv().unwrap() {
                     Some(mut samples) => time_samples.append(&mut samples),
                     None => break 'visualizer_loop,
@@ -368,6 +373,7 @@ fn main() -> Result<(), anyhow::Error> {
                 .map(|(panel_no, color)| Command {
                     panel_no: *panel_no,
                     color,
+                    transition_time,
                 })
                 .collect::<Vec<_>>();
             nl.run_commands(commands).unwrap();
