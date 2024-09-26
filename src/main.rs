@@ -57,6 +57,7 @@ fn main() -> Result<(), anyhow::Error> {
             config.nl_config.ip = nl_ip.unwrap_or(config.nl_config.ip);
             config.nl_config.port = nl_port.unwrap_or(config.nl_config.port);
             config.audio_device = device_name.unwrap_or(config.audio_device);
+            // so that there's at least one color / one active panel
             if config.hues.is_empty() {
                 config.hues.push(0);
             }
@@ -65,7 +66,7 @@ fn main() -> Result<(), anyhow::Error> {
             }
 
             println!(
-                "Connecting to Nanoleaf device at {}...",
+                "Connecting to a Nanoleaf device at {}...",
                 config.nl_config.ip
             );
             let nl = match Nanoleaf::new(
@@ -85,17 +86,16 @@ fn main() -> Result<(), anyhow::Error> {
             let max_active_panel = *config.nl_config.active_panels.iter().max().unwrap();
             if nl.panels.len() < max_active_panel {
                 return Err(anyhow::Error::msg(format!(
-                    "Panel {} in active_panels, but only {} panels overall",
+                    "Panel {} is specified in active_panels, but there are only {} panels available",
                     max_active_panel,
                     nl.panels.len()
                 )));
             }
             if config.nl_config.active_panels.iter().any(|&x| x == 0) {
                 return Err(anyhow::Error::msg(
-                    "Panel 0 is invalid, panels should be numbered from 1",
+                    "Panels should be numbered starting from 1",
                 ));
             }
-            println!("Success!");
 
             (config, nl)
         }
@@ -117,7 +117,7 @@ fn main() -> Result<(), anyhow::Error> {
             let nl_port = nl_port.unwrap_or(6789);
             let token_file_path =
                 token_file_path.unwrap_or(dirs::config_dir().unwrap().join("audioleaf/nltoken"));
-            println!("Connecting to Nanoleaf device at {}...", nl_ip);
+            println!("Connecting to a Nanoleaf device at {}...", nl_ip);
             let nl = match Nanoleaf::new(&nl_ip, nl_port, &token_file_path) {
                 Ok(nl) => nl,
                 Err(e) => {
@@ -127,7 +127,8 @@ fn main() -> Result<(), anyhow::Error> {
                     )));
                 }
             };
-            println!("Success!");
+
+            // default config
             let nl_config = NlConfig {
                 primary_axis: Axis::Y,
                 sort_primary: Sort::Asc,
@@ -137,7 +138,6 @@ fn main() -> Result<(), anyhow::Error> {
                 ip: nl_ip,
                 port: nl_port,
             };
-
             let config = Config {
                 nl_config,
                 audio_device: device_name.unwrap_or(String::from("default")),
@@ -151,7 +151,6 @@ fn main() -> Result<(), anyhow::Error> {
                     .map(|x| x % 360)
                     .collect::<Vec<u16>>(),
             };
-
             config::make_new_config_file(&config, &config_file_path)?;
             println!(
                 "Created config file '{}'",
@@ -161,6 +160,7 @@ fn main() -> Result<(), anyhow::Error> {
             (config, nl)
         }
     };
+    println!("Connected to {}", nl.name);
 
     let Config {
         nl_config,
@@ -179,6 +179,7 @@ fn main() -> Result<(), anyhow::Error> {
         ..
     } = nl_config;
 
+    // so that panels can be matched one-to-one with hues
     while hues.len() < active_panels.len() {
         hues.push(*hues.last().unwrap());
     }
@@ -225,7 +226,7 @@ fn main() -> Result<(), anyhow::Error> {
         Some(device) => device,
         None => {
             return Err(anyhow::Error::msg(format!(
-                "Input device '{}' not found, list of available input devices: {}",
+                "Input device '{}' not found, available input devices: {}",
                 device_name,
                 host.input_devices()?.fold(String::new(), |acc, dev| acc
                     + &dev.name().unwrap_or_default()
@@ -238,7 +239,7 @@ fn main() -> Result<(), anyhow::Error> {
     let audio_config: StreamConfig = audio_config.into();
     if max_freq > audio_config.sample_rate.0 / 2 {
         return Err(anyhow::Error::msg(format!(
-            "Maximal frequency to visualize ({} Hz) is more than half of the sample rate ({} Hz)",
+            "Maximal frequency to visualize ({} Hz) must be less than half of the sample rate ({} Hz)",
             max_freq, audio_config.sample_rate.0
         )));
     }
@@ -353,11 +354,13 @@ fn main() -> Result<(), anyhow::Error> {
     let gain_original = Arc::new(Mutex::new(default_gain));
     let gain = Arc::clone(&gain_original);
     let visualizer_thread = thread::spawn(move || {
+        let mut colors = hues
+            .into_iter()
+            .map(|hue| palette::Hwb::new(hue as f32, 1.0, 0.0))
+            .collect::<Vec<_>>();
         'visualizer_loop: loop {
             let mut time_samples = Vec::new();
-            // we need to take samples a couple of times because Nanoleaf can't change colors faster than every 100 ms
-            // the FFT takes ~50ms per one batch of samples
-            for _ in 0..(transition_time * 2 + 1) {
+            for _ in 0..(2 * transition_time) {
                 match rx.recv().unwrap() {
                     Some(mut samples) => time_samples.append(&mut samples),
                     None => break 'visualizer_loop,
@@ -366,13 +369,13 @@ fn main() -> Result<(), anyhow::Error> {
             let freq_samples = audio::process(time_samples, *gain.lock().unwrap());
 
             let hz_per_bin = (audio_config.sample_rate.0 / 2) / (freq_samples.len() as u32);
-            let colors = audio::visualize(freq_samples, min_freq, max_freq, &hues, hz_per_bin);
+            audio::update_colors(&mut colors, freq_samples, min_freq, max_freq, hz_per_bin);
             let commands = active_panels
                 .iter()
-                .zip(colors)
+                .zip(colors.iter())
                 .map(|(panel_no, color)| Command {
                     panel_no: *panel_no,
-                    color,
+                    color: *color,
                     transition_time,
                 })
                 .collect::<Vec<_>>();

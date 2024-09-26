@@ -18,6 +18,7 @@ pub struct Panel {
 
 #[derive(Debug)]
 pub struct Nanoleaf {
+    pub name: String,
     pub panels: Vec<Panel>,
     socket: UdpSocket,
 }
@@ -35,11 +36,16 @@ impl Nanoleaf {
     pub fn new(ip: &str, port: u16, token_file_path: &Path) -> Result<Self, anyhow::Error> {
         let ip = ip.parse::<Ipv4Addr>()?;
         let token = Self::get_token(&ip, token_file_path)?;
+        let name = Self::get_name(&ip, &token)?;
         let panels = Self::get_panels(&ip, &token)?;
         Self::request_udp_control(&ip, &token)?;
         let socket = Self::enable_udp_socket(&ip, port)?;
 
-        Ok(Nanoleaf { panels, socket })
+        Ok(Nanoleaf {
+            name,
+            panels,
+            socket,
+        })
     }
 
     fn get_token(ip: &Ipv4Addr, token_file_path: &Path) -> Result<String, anyhow::Error> {
@@ -50,7 +56,6 @@ impl Nanoleaf {
         Self::get_saved_token(token_file_path)
     }
 
-    /// Generate a new auth token for this Nanoleaf device and save it to a file
     fn generate_new_token(ip: &Ipv4Addr, token_file_path: &Path) -> Result<(), anyhow::Error> {
         let url = Url::parse(&format!("http://{}:{}/api/v1/new", ip, NL_API_PORT))?;
         let req_client = reqwest::blocking::Client::new();
@@ -85,7 +90,6 @@ impl Nanoleaf {
         Ok(())
     }
 
-    /// Get the token from a file
     fn get_saved_token(path: &Path) -> Result<String, anyhow::Error> {
         let mut token_file = File::open(path)?;
         let mut token = String::new();
@@ -94,7 +98,20 @@ impl Nanoleaf {
         Ok(token)
     }
 
-    /// Get data about this device's panels
+    fn get_name(ip: &Ipv4Addr, token: &str) -> Result<String, anyhow::Error> {
+        let url = Url::parse(&format!("http://{}:16021/api/v1/{}", ip, token))?;
+        let req_client = reqwest::blocking::Client::new();
+        let res = req_client
+            .get(url)
+            .send()?
+            .error_for_status()
+            .map_err(anyhow::Error::from)?;
+        let res_text = res.text()?;
+        let res_json: serde_json::Value = serde_json::from_str(&res_text)?;
+
+        Ok(String::from(res_json["name"].as_str().unwrap()))
+    }
+
     fn get_panels(ip: &Ipv4Addr, token: &str) -> Result<Vec<Panel>, anyhow::Error> {
         let url = Url::parse(&format!(
             "http://{}:16021/api/v1/{}/panelLayout/layout",
